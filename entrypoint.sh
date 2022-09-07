@@ -7,15 +7,21 @@ fi
 if [ "${HADOOP_NODE}" == "namenode" ]; then
   echo "Starting Hadoop name node..."
   yes | hdfs namenode -format
-  hdfs --daemon start namenode
-  hdfs --daemon start secondarynamenode
-  yarn --daemon start resourcemanager
-  mapred --daemon start historyserver
+  # hdfs --daemon start namenode
+  # hdfs --daemon start secondarynamenode
+  # yarn --daemon start resourcemanager
+  # mapred --daemon start historyserver
+  ${HADOOP_HOME}/sbin/hadoop-daemon.sh start namenode
+  ${HADOOP_HOME}/sbin/hadoop-daemon.sh start secondarynamenode
+  ${HADOOP_HOME}/sbin/yarn-daemon.sh start resourcemanager
+  ${HADOOP_HOME}/sbin/mr-jobhistory-daemon.sh start historyserver
 fi
 if [ "${HADOOP_NODE}" == "datanode" ]; then
   echo "Starting Hadoop data node..."
-  hdfs --daemon start datanode
-  yarn --daemon start nodemanager
+  # hdfs --daemon start datanode
+  # yarn --daemon start nodemanager
+  ${HADOOP_HOME}/sbin/hadoop-daemon.sh start datanode
+  ${HADOOP_HOME}/sbin/yarn-daemon.sh start nodemanager
 fi
 
 if [ -n "${HIVE_CONFIGURE}" ]; then
@@ -43,6 +49,9 @@ if [ -z "${SPARK_MASTER_ADDRESS}" ]; then
   SPARK_JARS_HDFS_PATH=/spark-jars
   if ! hadoop fs -test -d "${SPARK_JARS_HDFS_PATH}"
   then
+    # Temporary workaround to use Spark 2.x with Hive 2.x metastore (See https://issues.apache.org/jira/browse/SPARK-18112)
+    cp -vf ${HIVE_HOME}/hive-wa-lib-${HIVE_WA_VERSION}/*.jar "${SPARK_HOME}/jars"
+
     hadoop dfs -copyFromLocal "${SPARK_HOME}/jars" "${SPARK_JARS_HDFS_PATH}"
   fi
 
@@ -61,12 +70,18 @@ echo "All initializations finished!"
 # Stop all
 if [ "${HADOOP_NODE}" == "namenode" ]; then
   hdfs namenode -format
-  hdfs --daemon stop namenode
-  hdfs --daemon stop secondarynamenode
-  yarn --daemon stop resourcemanager
-  mapred --daemon stop historyserver
+  # hdfs --daemon stop namenode
+  # hdfs --daemon stop secondarynamenode
+  # yarn --daemon stop resourcemanager
+  # mapred --daemon stop historyserver
+  ${HADOOP_HOME}/sbin/hadoop-daemon.sh stop namenode
+  ${HADOOP_HOME}/sbin/hadoop-daemon.sh stop secondarynamenode
+  ${HADOOP_HOME}/sbin/yarn-daemon.sh stop resourcemanager
+  ${HADOOP_HOME}/sbin/mr-jobhistory-daemon.sh stop historyserver
 fi
 if [ "${HADOOP_NODE}" == "datanode" ]; then
-  hdfs --daemon stop datanode
-  yarn --daemon stop nodemanager
+  # hdfs --daemon stop datanode
+  # yarn --daemon stop nodemanager
+  ${HADOOP_HOME}/sbin/hadoop-daemon.sh stop datanode
+  ${HADOOP_HOME}/sbin/yarn-daemon.sh stop nodemanager
 fi

@@ -25,7 +25,7 @@ RUN apk add --no-cache \
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
 # Hadoop
-ENV HADOOP_VERSION=3.2.0
+ENV HADOOP_VERSION=2.7.7
 ENV HADOOP_HOME /usr/hadoop
 RUN curl --progress-bar -L --retry 3 \
   "http://archive.apache.org/dist/hadoop/common/hadoop-${HADOOP_VERSION}/hadoop-${HADOOP_VERSION}.tar.gz" \
@@ -36,7 +36,8 @@ RUN curl --progress-bar -L --retry 3 \
  && chown -R root:root "${HADOOP_HOME}"
 
 # Hive
-ENV HIVE_VERSION=3.1.2
+ENV HIVE_VERSION=2.1.1
+ENV HIVE_WA_VERSION=1.2.1
 ENV HIVE_HOME=/usr/hive
 ENV HIVE_CONF_DIR="${HIVE_HOME}/conf"
 ENV PATH "${PATH}:${HIVE_HOME}/bin"
@@ -50,10 +51,20 @@ RUN curl --progress-bar -L \
   && mkdir -p "${HIVE_HOME}/var/log" \
   && mkdir -p "${HIVE_CONF_DIR}" \
   && chmod 777 "${HIVE_HOME}/hcatalog/var/log" \
-  && chmod 777 "${HIVE_HOME}/var/log"
+  && chmod 777 "${HIVE_HOME}/var/log" \
+  && cd "${HIVE_HOME}/lib" \
+  && wget "https://jdbc.postgresql.org/download/postgresql-42.5.0.jar" \
+  && mkdir -p "${HIVE_HOME}/hive-wa-lib-${HIVE_WA_VERSION}" && chmod 777 "${HIVE_HOME}/hive-wa-lib-${HIVE_WA_VERSION}" \
+  && cd "${HIVE_HOME}/hive-wa-lib-${HIVE_WA_VERSION}" \
+  && wget "https://repo1.maven.org/maven2/org/apache/hive/hive-beeline/${HIVE_WA_VERSION}/hive-beeline-${HIVE_WA_VERSION}.jar" \
+  && wget "https://repo1.maven.org/maven2/org/apache/hive/hive-cli/${HIVE_WA_VERSION}/hive-cli-${HIVE_WA_VERSION}.jar" \
+  && wget "https://repo1.maven.org/maven2/org/apache/hive/hive-exec/${HIVE_WA_VERSION}/hive-exec-${HIVE_WA_VERSION}.jar" \
+  && wget "https://repo1.maven.org/maven2/org/apache/hive/hive-jdbc/${HIVE_WA_VERSION}/hive-jdbc-${HIVE_WA_VERSION}.jar" \
+  && wget "https://repo1.maven.org/maven2/org/apache/hive/hive-metastore/${HIVE_WA_VERSION}/hive-metastore-${HIVE_WA_VERSION}.jar"
+
 
 # Spark
-ENV SPARK_VERSION=2.4.5
+ENV SPARK_VERSION=2.3.4
 ENV SPARK_PACKAGE "spark-${SPARK_VERSION}-bin-without-hadoop"
 ENV SPARK_HOME /usr/spark
 RUN curl --progress-bar -L --retry 3 \
@@ -69,6 +80,9 @@ ARG SCALA_VERSION=2.11
 RUN curl --progress-bar -L \
     "https://repo1.maven.org/maven2/org/apache/spark/spark-hive_${SCALA_VERSION}/${SPARK_VERSION}/spark-hive_${SCALA_VERSION}-${SPARK_VERSION}.jar" \
     --output "${SPARK_HOME}/jars/spark-hive_${SCALA_VERSION}-${SPARK_VERSION}.jar"
+RUN cd "${SPARK_HOME}/jars" \
+  && wget "https://repo1.maven.org/maven2/org/apache/spark/spark-hive-thriftserver_${SCALA_VERSION}/${SPARK_VERSION}/spark-hive-thriftserver_${SCALA_VERSION}-${SPARK_VERSION}.jar"
+
 
 # PySpark - comment out if you don't want it in order to save image space
 RUN apk add --no-cache \
@@ -77,11 +91,11 @@ RUN apk add --no-cache \
  && ln -s /usr/bin/python3 /usr/bin/python
 
 # SparkR - comment out if you don't want it in order to save image space
-RUN apk add --no-cache \
-    'R=~3.6' \
-    'R-dev=~3.6' \
-    'libc-dev=~0.7' \
- && R -e 'install.packages("knitr", repos = "http://cran.us.r-project.org")'
+# RUN apk add --no-cache \
+#     'R=~3.6' \
+#     'R-dev=~3.6' \
+#     'libc-dev=~0.7' \
+#  && R -e 'install.packages("knitr", repos = "http://cran.us.r-project.org")'
 
 # Common settings
 ENV JAVA_HOME "/usr/lib/jvm/java-1.8-openjdk"
@@ -131,6 +145,9 @@ ENV SPARK_DIST_CLASSPATH="${HADOOP_CONF_DIR}:${HADOOP_HOME}/share/hadoop/tools/l
 COPY conf/hadoop/core-site.xml "${SPARK_CONF_DIR}"/
 COPY conf/hadoop/hdfs-site.xml "${SPARK_CONF_DIR}"/
 COPY conf/spark/spark-defaults.conf "${SPARK_CONF_DIR}"/
+RUN ln -s ${HIVE_CONF_DIR}/hive-site.xml ${SPARK_CONF_DIR}/hive-site.xml
+#&& cp -vf ${HIVE_HOME}/lib/hive-* ${SPARK_HOME}/jars
+
 
 # Spark with Hive
 # TODO enable in Spark 3.0
